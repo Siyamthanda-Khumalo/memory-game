@@ -114,53 +114,5 @@ const DIFFICULTY_CONFIG = {
 };
 ```
 
-## 🌐 Browser Support
 
-| Browser | Version | Status |
-|---------|---------|--------|
-| Chrome | Latest | ✅ Fully Supported |
-| Firefox | Latest | ✅ Fully Supported |
-| Safari | Latest | ✅ Fully Supported |
-| Edge | Latest | ✅ Fully Supported |
-| Mobile Safari | iOS 12+ | ✅ Fully Supported |
-| Chrome Mobile | Latest | ✅ Fully Supported |
 
-## 🐛 Troubleshooting
-
-### Common Issues
-
-**Game not starting?**
-- Ensure you're using Node.js version 14 or higher
-- Try deleting `node_modules` and running `npm install` again
-
-**Cards not responding on mobile?**
-- The game is optimized for touch - try tapping instead of clicking
-- Ensure your device supports touch events
-
-**High scores not saving?**
-- Check if localStorage is enabled in your browser
-- Try clearing browser data and testing again
-
-## 🤝 Contributing
-
-Contributions are welcome! Here are some ways you can help:
-
-1. **Report Bugs**: Open an issue with detailed steps to reproduce
-2. **Suggest Features**: Propose new game features or improvements
-3. **Code Contributions**: Submit pull requests for bug fixes or enhancements
-4. **Documentation**: Help improve this README or add code comments
-
-## 📄 License
-
-This project is open source and available under the [MIT License](LICENSE).
-
-## 🙏 Acknowledgments
-
-- Original HTML version inspiration
-- React community for excellent documentation
-- Tailwind CSS for the beautiful styling framework
-- Emoji providers for the fun card symbols
-
----
-
-**Enjoy playing and testing your memory skills! 🧠✨**
