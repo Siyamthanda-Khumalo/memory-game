@@ -1,62 +1,64 @@
 import React from 'react';
 
 const GameStats = ({ moves, matchedPairs, targetPairs, elapsedMs, formatMs, gameState, PREVIEW_MS }) => {
-  const getGameStatus = () => {
-    switch (gameState) {
-      case 'idle':
-        return '(Tap Start to begin)';
-      case 'preview':
-        return '(Previewing cards…)';
-      case 'running':
-        return '';
-      case 'paused':
-        return '(Paused)';
-      case 'finished':
-        return '';
-      default:
-        return '(Tap Start to begin)';
-    }
-  };
+  const progress = targetPairs > 0 ? (matchedPairs / targetPairs) * 100 : 0;
 
   const getStatusMessage = () => {
     switch (gameState) {
       case 'idle':
-        return 'Ready when you are — tap Start to begin.';
+        return 'Press Start to begin';
       case 'preview':
-        return `Memorize the cards! They will hide after ${Math.ceil(PREVIEW_MS / 1000)} seconds.`;
+        return `Memorize! Hiding in ${Math.ceil(PREVIEW_MS / 1000)}s...`;
       case 'running':
-        return '';
+        return 'Find all matching pairs';
       case 'paused':
-        return 'Game paused. Tap Resume to continue.';
+        return 'Game paused';
       case 'finished':
-        return `🎉 Excellent memory! All pairs found in ${moves} moves • ${formatMs(elapsedMs)}`;
+        return 'All pairs found!';
       default:
-        return 'Ready when you are — tap Start to begin.';
+        return 'Press Start to begin';
     }
   };
 
   return (
-    <div className="bg-white rounded-lg p-4 border shadow-sm">
-      <h2 className="text-lg font-semibold text-slate-800 mb-3">Game Stats</h2>
-      <div className="space-y-3">
-        <div className="flex justify-between items-center">
-          <span className="text-sm text-slate-600">Moves</span>
-          <span className="font-semibold text-slate-900 text-lg">{moves}</span>
+    <div className="panel p-5">
+      {/* Status message */}
+      <div className="mb-4">
+        <p className={`text-sm font-medium ${
+          gameState === 'finished' ? 'text-emerald-600' :
+          gameState === 'preview' ? 'text-amber-600' :
+          'text-slate-400'
+        }`}>
+          {getStatusMessage()}
+        </p>
+      </div>
+
+      {/* Stats row */}
+      <div className="flex items-center gap-6 mb-4">
+        <div className="flex-1">
+          <p className="text-[11px] uppercase tracking-wider text-slate-400 mb-1">Moves</p>
+          <p className="text-2xl font-semibold text-slate-800 stat-value">{moves}</p>
         </div>
-        <div className="flex justify-between items-center">
-          <span className="text-sm text-slate-600">Pairs Found</span>
-          <span className="font-semibold text-lg">
-            <span className="text-emerald-600">{matchedPairs}</span>/
-            <span className="text-slate-900">{targetPairs}</span>
-          </span>
+        <div className="flex-1">
+          <p className="text-[11px] uppercase tracking-wider text-slate-400 mb-1">Pairs</p>
+          <p className="text-2xl font-semibold stat-value">
+            <span className="text-blue-600">{matchedPairs}</span>
+            <span className="text-slate-300 mx-0.5">/</span>
+            <span className="text-slate-500">{targetPairs}</span>
+          </p>
         </div>
-        <div className="flex justify-between items-center">
-          <span className="text-sm text-slate-600">Time</span>
-          <span className="font-semibold text-slate-900 text-lg">{formatMs(elapsedMs)}</span>
+        <div className="flex-1">
+          <p className="text-[11px] uppercase tracking-wider text-slate-400 mb-1">Time</p>
+          <p className="text-2xl font-semibold text-slate-800 stat-value">{formatMs(elapsedMs)}</p>
         </div>
-        <div className="pt-2 border-t border-slate-200">
-          <div className="text-xs text-slate-500">{getGameStatus()}</div>
-        </div>
+      </div>
+
+      {/* Progress bar */}
+      <div className="progress-bar h-1.5">
+        <div
+          className="progress-fill"
+          style={{ width: `${progress}%` }}
+        />
       </div>
     </div>
   );

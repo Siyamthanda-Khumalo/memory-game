@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import GameStats from './components/GameStats';
 import GameControls from './components/GameControls';
 import BestScores from './components/BestScores';
@@ -6,7 +6,6 @@ import GameGrid from './components/GameGrid';
 
 // Game constants
 const PREVIEW_MS = 3000;
-const MIN_CARD_PX = 50;
 
 const EMOJIS_ALL = [
   "🎁", "🚗", "🐶", "🌟", "🎵", "⚽", "🎲", "🧩", "🍩", "🚀", "🎧", "🌈",
@@ -15,7 +14,7 @@ const EMOJIS_ALL = [
 
 const DIFFICULTY_CONFIG = {
   easy: { pairs: 6, label: "Easy", columns: 4, rows: 3 },
-  medium: { pairs: 10, label: "Medium", columns: 4, rows: 5 },
+  medium: { pairs: 10, label: "Medium", columns: 5, rows: 4 },
   hard: { pairs: 12, label: "Hard" },
 };
 
@@ -23,7 +22,7 @@ const LS_KEY = "memoryScores_v1";
 
 function App() {
   // Game state
-  const [gameState, setGameState] = useState("idle"); // idle, preview, running, paused, finished
+  const [gameState, setGameState] = useState("idle");
   const [difficulty, setDifficulty] = useState("medium");
   const [deck, setDeck] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
@@ -36,8 +35,8 @@ function App() {
   const [scores, setScores] = useState({});
 
   // Timers
-  const [tickInterval, setTickInterval] = useState(null);
-  const [startTime, setStartTime] = useState(null);
+  const [timerRunning, setTimerRunning] = useState(false);
+  const startTimeRef = useRef(null);
   const [previewTimeout, setPreviewTimeout] = useState(null);
 
   // Utility functions
@@ -52,31 +51,32 @@ function App() {
 
   const computeOptimalGrid = useCallback((cardCount) => {
     const config = DIFFICULTY_CONFIG[difficulty];
-    
-    // Use fixed layout for easy and medium modes with smaller cards
+    const screenWidth = window.innerWidth;
+    const screenHeight = window.innerHeight;
+    const isDesktop = screenWidth >= 1024;
+    const gapSize = isDesktop ? 10 : 8;
+
+    let availableWidth, availableHeight;
+
+    if (isDesktop) {
+      const containerPadding = 32;
+      const totalWidth = Math.min(screenWidth - containerPadding, 1280);
+      availableWidth = (totalWidth * 2 / 3) - 64;
+      // Account for header (~80px), panel padding (~40px), outer padding (~40px), margins
+      availableHeight = screenHeight - 220;
+    } else {
+      const containerPadding = 16;
+      availableWidth = screenWidth - (containerPadding * 2);
+      availableHeight = screenHeight * 0.5;
+    }
+
     if (config.columns && config.rows) {
-      const screenWidth = window.innerWidth;
-      const isDesktop = screenWidth >= 1024;
-      
-      // Calculate available space
-      let availableWidth;
-      if (isDesktop) {
-        const containerPadding = 32;
-        const totalWidth = Math.min(screenWidth - containerPadding, 1280);
-        availableWidth = (totalWidth * 2 / 3) - 32;
-      } else {
-        const containerPadding = 16;
-        availableWidth = screenWidth - (containerPadding * 2);
-      }
-      
-      // Calculate smaller card size similar to hard mode
-      const gapSize = isDesktop ? 8 : 6;
       const totalGapWidth = (config.columns - 1) * gapSize;
+      const totalGapHeight = (config.rows - 1) * gapSize;
       const maxCardWidth = (availableWidth - totalGapWidth) / config.columns;
-      
-      // Limit card size to make them smaller (similar to hard mode)
-      const cardSize = Math.min(maxCardWidth, isDesktop ? 100 : 60);
-      
+      const maxCardHeight = (availableHeight - totalGapHeight) / config.rows;
+      const cardSize = Math.min(maxCardWidth, maxCardHeight);
+
       return {
         columns: config.columns,
         rows: config.rows,
@@ -84,50 +84,31 @@ function App() {
         totalSlots: config.columns * config.rows
       };
     }
-    
-    // Dynamic calculation for hard mode (unchanged)
-    const screenWidth = window.innerWidth;
-    const screenHeight = window.innerHeight;
-    const isDesktop = screenWidth >= 1024;
-    
-    let availableWidth, availableHeight;
-    
-    if (isDesktop) {
-      const containerPadding = 32;
-      const totalWidth = Math.min(screenWidth - containerPadding, 1280);
-      availableWidth = (totalWidth * 2 / 3) - 32;
-      availableHeight = screenHeight * 0.8;
-    } else {
-      const containerPadding = 16;
-      availableWidth = screenWidth - (containerPadding * 2);
-      availableHeight = screenHeight * 0.5;
-    }
-    
+
     let bestConfig = { columns: 4, rows: Math.ceil(cardCount / 4) };
     let bestScore = 0;
-    
+
     for (let cols = 2; cols <= Math.min(6, cardCount); cols++) {
       const rows = Math.ceil(cardCount / cols);
-      
-      const gapSize = isDesktop ? 8 : 6;
+
       const totalGapWidth = (cols - 1) * gapSize;
       const totalGapHeight = (rows - 1) * gapSize;
-      
+
       const cardWidth = (availableWidth - totalGapWidth) / cols;
       const cardHeight = (availableHeight - totalGapHeight) / rows;
       const cardSize = Math.min(cardWidth, cardHeight);
-      
+
       if (cardSize > 40) {
         const aspectRatio = Math.min(cardWidth / cardHeight, cardHeight / cardWidth);
         const score = cardSize * aspectRatio * (1 / rows);
-        
+
         if (score > bestScore) {
           bestScore = score;
           bestConfig = { columns: cols, rows, cardSize };
         }
       }
     }
-    
+
     return bestConfig;
   }, [difficulty]);
 
@@ -137,15 +118,14 @@ function App() {
       { id: i * 2, emoji: e, matched: false },
       { id: i * 2 + 1, emoji: e, matched: false },
     ]);
-    
-    // If we have a fixed grid size, add empty slots if needed
+
     if (totalSlots && pairsArr.length < totalSlots) {
       const emptySlots = totalSlots - pairsArr.length;
       for (let i = 0; i < emptySlots; i++) {
         pairsArr.push({ id: `empty-${i}`, emoji: '', matched: false, isEmpty: true });
       }
     }
-    
+
     return shuffle(pairsArr);
   }, [shuffle]);
 
@@ -174,20 +154,13 @@ function App() {
 
   // Timer functions
   const stopTimer = useCallback(() => {
-    if (tickInterval) {
-      clearInterval(tickInterval);
-      setTickInterval(null);
-    }
-  }, [tickInterval]);
+    setTimerRunning(false);
+  }, []);
 
   const startTimer = useCallback(() => {
-    setStartTime(Date.now() - elapsedMs);
-    stopTimer();
-    const interval = setInterval(() => {
-      setElapsedMs(Date.now() - (Date.now() - elapsedMs));
-    }, 100);
-    setTickInterval(interval);
-  }, [elapsedMs, stopTimer]);
+    startTimeRef.current = Date.now() - elapsedMs;
+    setTimerRunning(true);
+  }, [elapsedMs]);
 
   // Game functions
   const resetRoundToIdle = useCallback((keepOrder = true) => {
@@ -196,7 +169,7 @@ function App() {
       clearTimeout(previewTimeout);
       setPreviewTimeout(null);
     }
-    
+
     setGameState("idle");
     setElapsedMs(0);
     setSelectedIds([]);
@@ -205,7 +178,7 @@ function App() {
     setCooldown(false);
     setHasScored(false);
     setRevealAll(false);
-    
+
     if (!keepOrder) {
       const config = DIFFICULTY_CONFIG[difficulty];
       const totalSlots = config.columns && config.rows ? config.columns * config.rows : null;
@@ -219,43 +192,40 @@ function App() {
     if (gameState !== "running") return;
     if (revealAll || cooldown) return;
     if (selectedIds.includes(cardId)) return;
-    
+
     const card = deck.find(c => c.id === cardId);
     if (!card || card.matched || card.isEmpty) return;
     if (selectedIds.length >= 2) return;
-    
+
     const newSelectedIds = [...selectedIds, cardId];
     setSelectedIds(newSelectedIds);
-    
+
     if (newSelectedIds.length === 2) {
       const [aId, bId] = newSelectedIds;
       const a = deck.find(c => c.id === aId);
       const b = deck.find(c => c.id === bId);
-      
+
       setMoves(prev => prev + 1);
-      
+
       if (a.emoji === b.emoji) {
-        // Match found - provide haptic feedback on mobile
         if ('vibrate' in navigator) {
           navigator.vibrate(100);
         }
-        
-        setDeck(prevDeck => prevDeck.map(c => 
+
+        setDeck(prevDeck => prevDeck.map(c =>
           c.id === aId || c.id === bId ? { ...c, matched: true } : c
         ));
         setMatchedPairs(prev => prev + 1);
         setSelectedIds([]);
-        
-        // Check if game is finished
+
         if (matchedPairs + 1 === DIFFICULTY_CONFIG[difficulty].pairs) {
           finishGame();
         }
       } else {
-        // No match - provide different haptic feedback
         if ('vibrate' in navigator) {
           navigator.vibrate([50, 50, 50]);
         }
-        
+
         setCooldown(true);
         setTimeout(() => {
           setSelectedIds([]);
@@ -268,15 +238,13 @@ function App() {
   const finishGame = useCallback(() => {
     stopTimer();
     setGameState("finished");
-    
-    // Success haptic feedback
+
     if ('vibrate' in navigator) {
       navigator.vibrate([200, 100, 200]);
     }
-    
+
     updateScoreboard();
-    
-    // Auto reset after 2 seconds on mobile, 1.5 on desktop
+
     const resetDelay = window.innerWidth <= 640 ? 2000 : 1500;
     setTimeout(() => {
       resetRoundToIdle(true);
@@ -286,13 +254,13 @@ function App() {
   const updateScoreboard = useCallback(() => {
     if (hasScored) return;
     setHasScored(true);
-    
+
     const current = { ...scores };
     const entry = { ...(current[difficulty] || {}) };
-    
+
     const betterMoves = entry.bestMoves == null || moves < entry.bestMoves ? moves : entry.bestMoves;
     const betterTime = entry.bestTimeMs == null || elapsedMs < entry.bestTimeMs ? elapsedMs : entry.bestTimeMs;
-    
+
     const newScores = {
       ...current,
       [difficulty]: {
@@ -300,7 +268,7 @@ function App() {
         bestTimeMs: betterTime,
       }
     };
-    
+
     setScores(newScores);
     saveScores(newScores);
   }, [hasScored, scores, difficulty, moves, elapsedMs, saveScores]);
@@ -308,18 +276,17 @@ function App() {
   // Event handlers
   const handleStart = useCallback(() => {
     if (gameState !== 'idle') return;
-    
-    // Reset for new game
+
     setDeck(prevDeck => prevDeck.map(c => ({ ...c, matched: false })));
     setSelectedIds([]);
     setMoves(0);
     setMatchedPairs(0);
     setHasScored(false);
     setElapsedMs(0);
-    
+
     setRevealAll(true);
     setGameState('preview');
-    
+
     const timeout = setTimeout(() => {
       setRevealAll(false);
       setGameState('running');
@@ -370,12 +337,11 @@ function App() {
       clearTimeout(resizeTimeout);
       resizeTimeout = setTimeout(() => {
         if (gameState !== 'idle') {
-          // Force re-render of grid
           setDeck(prevDeck => [...prevDeck]);
         }
       }, 150);
     };
-    
+
     window.addEventListener('resize', handleResize);
     window.addEventListener('orientationchange', () => {
       setTimeout(handleResize, 100);
@@ -415,20 +381,30 @@ function App() {
 
   // Update timer
   useEffect(() => {
-    if (startTime && tickInterval) {
-      const interval = setInterval(() => {
-        setElapsedMs(Date.now() - startTime);
-      }, 100);
-      return () => clearInterval(interval);
-    }
-  }, [startTime, tickInterval]);
+    if (!timerRunning) return;
+    const interval = setInterval(() => {
+      if (startTimeRef.current != null) {
+        setElapsedMs(Date.now() - startTimeRef.current);
+      }
+    }, 100);
+    return () => clearInterval(interval);
+  }, [timerRunning]);
 
   return (
-    <div className="bg-gray-50 min-h-screen">
-      <div className="max-w-7xl mx-auto p-2 sm:p-4 min-h-screen">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-screen">
-          {/* Left Column: Stats & Controls */}
-          <div className="lg:col-span-1 space-y-4">
+    <div className="relative z-10 h-screen overflow-hidden">
+      <div className="max-w-7xl mx-auto p-3 sm:p-5 h-full flex flex-col">
+        {/* Header */}
+        <header className="text-center pt-2 pb-3 lg:pt-4 lg:pb-4 shrink-0">
+          <h1 className="text-2xl lg:text-3xl font-bold tracking-tight text-blue-600">
+            Memory
+          </h1>
+          <p className="text-slate-400 text-xs mt-0.5 font-light">Find all matching pairs</p>
+        </header>
+
+        {/* Main content */}
+        <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-5">
+          {/* Sidebar */}
+          <div className="lg:col-span-1 space-y-3 order-2 lg:order-1 overflow-y-auto">
             <GameStats
               moves={moves}
               matchedPairs={matchedPairs}
@@ -438,7 +414,7 @@ function App() {
               gameState={gameState}
               PREVIEW_MS={PREVIEW_MS}
             />
-            
+
             <GameControls
               difficulty={difficulty}
               gameState={gameState}
@@ -448,7 +424,7 @@ function App() {
               onStop={handleStop}
               onReset={handleReset}
             />
-            
+
             <BestScores
               difficulty={difficulty}
               scores={scores}
@@ -457,21 +433,31 @@ function App() {
             />
           </div>
 
-          {/* Right Column: Game Card */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-lg border shadow-sm game-area h-full flex flex-col">
-              <div className="p-4 flex-1 flex flex-col">
-                <h2 className="text-xl font-semibold text-slate-800 mb-4 text-center">Memory Game</h2>
-                
-                <GameGrid
-                  deck={deck}
-                  selectedIds={selectedIds}
-                  revealAll={revealAll}
-                  gameState={gameState}
-                  onCardClick={handleCardClick}
-                  computeOptimalGrid={computeOptimalGrid}
-                />
-              </div>
+          {/* Game area */}
+          <div className="lg:col-span-2 order-1 lg:order-2 min-h-0">
+            <div className={`panel-game game-area h-full flex flex-col p-3 lg:p-5 ${
+              gameState === 'running' ? 'active' : ''
+            }`}>
+              <GameGrid
+                deck={deck}
+                selectedIds={selectedIds}
+                revealAll={revealAll}
+                gameState={gameState}
+                onCardClick={handleCardClick}
+                computeOptimalGrid={computeOptimalGrid}
+              />
+
+              {/* Win overlay */}
+              {gameState === 'finished' && (
+                <div className="win-message text-center py-4">
+                  <p className="text-2xl font-bold text-emerald-600">
+                    Well done!
+                  </p>
+                  <p className="text-slate-400 text-sm mt-1">
+                    {moves} moves in {formatMs(elapsedMs)}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>

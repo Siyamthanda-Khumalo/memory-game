@@ -1,42 +1,50 @@
 import React from 'react';
 
-const BestScores = ({ difficulty, scores, formatMs, onResetScores }) => {
-  const DIFFICULTY_CONFIG = {
-    easy: { pairs: 6, label: "Easy", columns: 4, rows: 3 },
-    medium: { pairs: 10, label: "Medium", columns: 4, rows: 5 },
-    hard: { pairs: 12, label: "Hard" },
-  };
+const DIFFICULTY_LABELS = {
+  easy: 'Easy',
+  medium: 'Medium',
+  hard: 'Hard',
+};
 
+const BestScores = ({ difficulty, scores, formatMs, onResetScores }) => {
   const bestForDiff = scores[difficulty] || {};
+  const hasBest = bestForDiff.bestMoves != null || bestForDiff.bestTimeMs != null;
 
   return (
-    <div className="bg-white rounded-lg p-4 border shadow-sm">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-lg font-semibold text-slate-800">Best Scores</h2>
-        <button 
+    <div className="panel p-5">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className="text-[11px] uppercase tracking-wider text-slate-400">Best Scores</h3>
+          <p className="text-sm text-blue-600 font-medium mt-0.5">
+            {DIFFICULTY_LABELS[difficulty]}
+          </p>
+        </div>
+        <button
           onClick={onResetScores}
-          className="control-btn px-3 py-1 text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded border border-gray-200"
+          className="text-[11px] text-slate-300 hover:text-slate-500 transition-colors px-2 py-1 rounded"
         >
           Reset
         </button>
       </div>
-      <div className="text-sm text-slate-700 mb-2">
-        <span>{DIFFICULTY_CONFIG[difficulty].label}</span> Difficulty
-      </div>
-      <div className="space-y-2">
-        <div className="flex justify-between items-center">
-          <span className="text-sm text-slate-600">Best moves</span>
-          <span className="font-medium text-slate-900">
-            {bestForDiff.bestMoves != null ? bestForDiff.bestMoves : '—'}
-          </span>
+
+      {hasBest ? (
+        <div className="flex gap-6">
+          <div className="flex-1">
+            <p className="text-[11px] uppercase tracking-wider text-slate-400 mb-1">Moves</p>
+            <p className="text-xl font-semibold text-slate-700 stat-value">
+              {bestForDiff.bestMoves != null ? bestForDiff.bestMoves : '-'}
+            </p>
+          </div>
+          <div className="flex-1">
+            <p className="text-[11px] uppercase tracking-wider text-slate-400 mb-1">Time</p>
+            <p className="text-xl font-semibold text-slate-700 stat-value">
+              {bestForDiff.bestTimeMs != null ? formatMs(bestForDiff.bestTimeMs) : '-'}
+            </p>
+          </div>
         </div>
-        <div className="flex justify-between items-center">
-          <span className="text-sm text-slate-600">Best time</span>
-          <span className="font-medium text-slate-900">
-            {bestForDiff.bestTimeMs != null ? formatMs(bestForDiff.bestTimeMs) : '—'}
-          </span>
-        </div>
-      </div>
+      ) : (
+        <p className="text-sm text-slate-300">No scores yet. Play a game!</p>
+      )}
     </div>
   );
 };

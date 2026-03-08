@@ -1,63 +1,64 @@
 import React from 'react';
 
-const Card = ({ card, isSelected, isRevealed, isMatched, isDisabled, onClick }) => {
-  const getCardClasses = () => {
-    let baseClasses = 'card-button relative aspect-square rounded-lg border-2 text-sm sm:text-base font-bold transition-all duration-200 disabled:opacity-80 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1';
-    
-    if (isMatched) {
-      return `${baseClasses} bg-emerald-100 border-emerald-300 text-emerald-800`;
-    } else if (isRevealed) {
-      return `${baseClasses} bg-blue-50 border-blue-200 text-blue-800`;
-    } else {
-      return `${baseClasses} bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-400`;
-    }
-  };
-
+const Card = ({ card, isSelected, isRevealed, isMatched, isDisabled, onClick, index }) => {
   const handleClick = (e) => {
     e.preventDefault();
-    onClick();
+    if (!isDisabled) onClick();
   };
 
   const handleTouchStart = (e) => {
     e.preventDefault();
   };
 
-  // Handle empty slots for fixed grids
   if (card.isEmpty) {
-    return (
-      <button 
-        type="button"
-        className="invisible" 
-        disabled 
-        aria-hidden="true"
-      />
-    );
+    return <div className="invisible" aria-hidden="true" />;
   }
 
+  const isFlipped = isRevealed || isMatched;
+
   return (
-    <button
-      type="button"
-      className={getCardClasses()}
-      disabled={isDisabled}
-      onClick={handleClick}
-      onTouchStart={handleTouchStart}
-      style={{ passive: false }}
+    <div
+      className={`card-wrapper card-enter ${isMatched ? 'card-matched' : ''}`}
+      style={{
+        aspectRatio: '1',
+        animationDelay: `${(index || 0) * 25}ms`,
+      }}
     >
-      <span 
-        className={`select-none transition-opacity duration-200 ${isRevealed ? 'opacity-100' : 'opacity-0'}`}
+      <button
+        type="button"
+        className={`card-inner w-full h-full ${isFlipped ? 'flipped' : ''}`}
+        disabled={isDisabled}
+        onClick={handleClick}
+        onTouchStart={handleTouchStart}
+        aria-label={isRevealed ? card.emoji : 'Hidden card'}
+        style={{ cursor: isDisabled ? 'default' : 'pointer' }}
       >
-        {card.emoji}
-      </span>
-      
-      {!isRevealed && (
-        <span 
-          className="absolute inset-0 grid place-items-center text-slate-400 text-xs sm:text-sm font-bold"
-          aria-hidden="true"
-        >
-          ?
-        </span>
-      )}
-    </button>
+        {/* Back face - hidden state */}
+        <div className="card-face card-front">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#93c5fd"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <circle cx="12" cy="12" r="1" />
+            <circle cx="12" cy="5" r="1" />
+            <circle cx="12" cy="19" r="1" />
+          </svg>
+        </div>
+
+        {/* Front face - revealed state */}
+        <div className="card-face card-back">
+          <span className="select-none" style={{ fontSize: 'clamp(1.2rem, 3vw, 2rem)' }}>
+            {card.emoji}
+          </span>
+        </div>
+      </button>
+    </div>
   );
 };
 
